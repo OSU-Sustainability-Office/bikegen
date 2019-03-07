@@ -3,33 +3,49 @@
 @Date:   2019-03-04T14:23:52-08:00
 @Email:  brogan.miner@oregonstate.edu
 @Last modified by:   Brogan
-@Last modified time: 2019-03-04T16:48:00-08:00
+@Last modified time: 2019-03-06T19:04:04-08:00
 -->
 
 <template>
   <el-row style='height: 100%'>
-    <el-col :span='20' class='timer'>{{ time | format }}</el-col>
-    <el-col :span='4' style='height: 100%'>
-      <el-row class='buttonRow'>
-        <el-col :span='24'>
-          <el-button style='width: 100%' type='success' @click='startTimer()' v-if='!timerRunning'>Start</el-button>
-          <el-button style='width: 100%' type='danger' @click='stopTimer()' v-if='timerRunning'>Stop</el-button>
-        </el-col>
-      </el-row>
-      <el-row class='buttonRow'>
-        <el-col :span='24'>
-          <el-button style='width: 100%' type='primary' @click='time = 0' >Reset</el-button>
-        </el-col>
-      </el-row>
-    </el-col>
+    <el-col :span='24' class='timer'>{{ time | format }}</el-col>
+    <el-dialog title="Save Entry" :visible.sync="dialogVisible" width="30%">
+        <el-input placeholder="Name" v-model="input"></el-input>
+        <span slot="footer" class="dialog-footer">
+          <el-button @click="cancel()">Cancel</el-button>
+          <el-button type="primary" @click="saveTime()">Confirm</el-button>
+        </span>
+      </el-dialog>
   </el-row>
 </template>
 <script>
+import { mapGetters } from 'vuex'
+
 export default {
   data () {
     return {
-      time: 0,
-      timerRunning: 0
+      dialogVisible: false
+    }
+  },
+  computed: {
+    ...mapGetters([
+      'time',
+      'timerRunning'
+    ]),
+    input: {
+      get () {
+        return this.$store.getters.name
+      },
+      set (value) {
+        this.$store.dispatch('name', value)
+      }
+    }
+  },
+  watch: {
+    timerRunning: function (val) {
+      if (!val) {
+        this.dialogVisible = true
+      }
     }
   },
   filters: {
@@ -56,18 +72,13 @@ export default {
     }
   },
   methods: {
-    incrementTime: function () {
-      if (this.timerRunning) {
-        this.time++
-        setTimeout(() => { this.incrementTime() }, 1000)
-      }
+    saveTime: function () {
+      this.dialogVisible = false
+      this.$store.dispatch('pushCurrent')
     },
-    startTimer: function () {
-      this.timerRunning = 1
-      setTimeout(() => { this.incrementTime() }, 1000)
-    },
-    stopTimer: function () {
-      this.timerRunning = 0
+    cancel: function () {
+      this.$store.dispatch('resetCurrent')
+      this.dialogVisible = false
     }
   }
 }

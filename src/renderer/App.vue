@@ -3,7 +3,7 @@
 @Date:   2019-03-04T11:26:52-08:00
 @Email:  brogan.miner@oregonstate.edu
 @Last modified by:   Brogan
-@Last modified time: 2019-03-05T17:50:16-08:00
+@Last modified time: 2019-03-06T19:51:57-08:00
 -->
 
 <template>
@@ -13,16 +13,16 @@
         OSU Bike Generator
       </el-col>
       <el-col :span='2'>
-        <el-popover placement="left" width="400" trigger="hover">
+        <el-popover placement="left" width="400" trigger="hover" @show='populateDevices()'>
           <el-table :data="gridData">
             <el-table-column width="300" property="name" label="Name">
               <template slot-scope="scope">
-                <div @click='selectDevice(scope.$index)'>{{ scope.row.name }}</div>
+                <div @click='selectDevice(scope.row.name)'>{{ scope.row.name }}</div>
               </template>
             </el-table-column>
             <el-table-column width="100" property="selected" label="">
               <template slot-scope="scope">
-                <i v-if='gridData[scope.$index].selected' class="el-icon-check" @click='selectDevice(scope.$index)'></i>
+                <i v-if='gridData[scope.$index].selected' class="el-icon-check" @click='disconnectDevice()'></i>
               </template>
             </el-table-column>
           </el-table>
@@ -49,30 +49,21 @@ export default {
     }
   },
   mounted () {
-    ipcRenderer.send('connectDevice', '')
+
   },
   created () {
     ipcRenderer.on('addDevice', (event, arg) => {
-      if (this.gridData.map(e => { return e.name }).indexOf(arg) < 0) {
-        this.gridData.push({ name: arg, selected: false })
+      for (let com of arg) {
+        if (this.gridData.map(e => { return e.name }).indexOf(com) < 0) {
+          this.gridData.push({ name: com, selected: false })
+        }
       }
     })
   },
   methods: {
     selectDevice: function (value) {
-      ipcRenderer.send('disconnectDevice', '')
-      new Promise((resolve, reject) => {
-        ipcRenderer.on('disconnectSuccess', (event, arg) => {
-          for (let device of this.gridData) {
-            device.selected = false
-          }
-          resolve()
-        })
-        ipcRenderer.on('disconnectError', (event, arg) => {
-          reject(new Error('Could not disconnect device'))
-        })
-      }).then(() => {
-        ipcRenderer.send('chooseDevice', value + 1)
+      this.disconnectDevice().then(() => {
+        ipcRenderer.send('connectDevice', value)
         new Promise((resolve, reject) => {
           ipcRenderer.on('connectError', (event, arg) => {
             reject(new Error(arg))
@@ -82,13 +73,30 @@ export default {
           })
         }).then(() => {
           // success
-          this.gridData[value].selected = true
+          this.gridData[this.gridData.map(e => { return e.name }).indexOf(value)].selected = true
         }).catch((e) => {
           console.log(e.message)
         })
       }).catch(e => {
         console.log(e.message)
       })
+    },
+    disconnectDevice: function (value) {
+      ipcRenderer.send('disconnectDevice', '')
+      return new Promise((resolve, reject) => {
+        ipcRenderer.on('disconnectSuccess', (event, arg) => {
+          for (let device of this.gridData) {
+            device.selected = false
+          }
+          resolve()
+        })
+        ipcRenderer.on('disconnectError', (event, arg) => {
+          reject(new Error('Could not disconnect device'))
+        })
+      })
+    },
+    populateDevices: function () {
+      ipcRenderer.send('listDevices', '')
     }
   }
 }

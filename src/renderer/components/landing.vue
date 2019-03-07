@@ -3,14 +3,14 @@
 @Date:   2019-03-04T12:28:00-08:00
 @Email:  brogan.miner@oregonstate.edu
 @Last modified by:   Brogan
-@Last modified time: 2019-03-05T17:55:35-08:00
+@Last modified time: 2019-03-06T21:12:45-08:00
 -->
 <template>
   <el-row class='stageArea'>
     <el-col :span='18' style='height: 100%'>
       <el-row class='graphBlockRow'>
         <el-col :span='24' class='graphBlock block'>
-          <linechart :chartData='data'  ref='chart' class='chart'/>
+          <linechart :chartData='dataFull'  ref='chart' class='chart'/>
           <div class='blockOverlay'>
           </div>
         </el-col>
@@ -24,27 +24,44 @@
         <el-col :span='12' class='numberBlock block'>
           <div class='blockOverlay'>
           </div>
-          &nbsp;
+          <total />
         </el-col>
       </el-row>
     </el-col>
     <el-col :span='6' class='leaderboardBlock block'>
       <div class='blockOverlay'>
       </div>
-      &nbsp;
+      <leaderBoard />
     </el-col>
   </el-row>
 </template>
 <script>
 import linechart from '@/components/line.js'
 import timer from '@/components/timer.vue'
+import total from '@/components/total.vue'
+import leaderBoard from '@/components/leaderboard.vue'
 import { ipcRenderer } from 'electron'
+import { mapGetters } from 'vuex'
 
 export default {
   name: 'app',
   components: {
     linechart,
-    timer
+    timer,
+    leaderBoard,
+    total
+  },
+  computed: {
+    ...mapGetters([
+      'data',
+      'timerRunning'
+    ])
+  },
+  watch: {
+    data: function (value) {
+      this.dataFull.datasets[0].data = value
+      this.$refs.chart.$data._chart.update()
+    }
   },
   mounted () {
 
@@ -52,15 +69,26 @@ export default {
   created () {
     ipcRenderer.on('serialData', (event, arg) => {
       let f = JSON.parse(arg)
-      this.data.datasets[0].data.push({ x: this.data.datasets[0].data.length, y: (f[1] * f[2]) })
-      this.$refs.chart.$data._chart.update()
+      if (f[1] && !this.timerRunning) {
+        this.$store.dispatch('startTimer')
+      } else if (!f[1] && this.timerRunning) {
+        this.$store.dispatch('stopTimer')
+      } else if (f[1] && this.timerRunning) {
+        clearTimeout(this.invalidator)
+        this.$store.dispatch('pushData', { x: this.data.length, y: (f[1] * f[2]) })
+        // stop if the device turns off
+        this.invalidator = setTimeout(() => {
+          this.$store.dispatch('stopTimer')
+        }, 1000)
+      }
     })
   },
   data () {
     return {
       connected: false,
       gradient: 0,
-      data: {
+      inavidator: null,
+      dataFull: {
         labels: ['Watts'],
         datasets: [
           {

@@ -3,7 +3,7 @@
  * @Date:   2019-03-04T10:57:50-08:00
  * @Email:  brogan.miner@oregonstate.edu
  * @Last modified by:   Brogan
- * @Last modified time: 2019-03-05T17:50:01-08:00
+ * @Last modified time: 2019-03-06T19:44:44-08:00
  */
 
 'use strict'
@@ -57,56 +57,45 @@ app.on('activate', () => {
 
 let ComPort = 0
 
-ipcMain.on('connectDevice', (event, arg) => {
-  if (ComPort) {
-    mainWindow.webContents.send('deviceAlreadyConnected', '')
-  }
+ipcMain.on('listDevices', (event, arg) => {
   SerialPort.list((err, ports) => {
     if (err) {
       mainWindow.webContents.send('otherError', err.message)
       return
     }
-    ports.forEach((port, index) => {
-      mainWindow.webContents.send('addDevice', port.comName)
-    })
-    new Promise((resolve, reject) => {
-      function devicePrompt () {
-        ipcMain.once('chooseDevice', (event, answer) => {
-          if (isNaN(answer) || parseInt(answer) <= 0 || parseInt(answer) > ports.length) {
-            devicePrompt()
-          } else {
-            resolve(answer)
-          }
-        })
-      }
-      devicePrompt()
-    }).then(selection => {
-      ComPort = new SerialPort(ports[selection - 1].comName, { autoOpen: false, baudRate: 9600 })
-      ComPort.open(function (err) {
-        if (err) {
-          mainWindow.webContents.send('connectError', err.message)
-          return
-        }
-        mainWindow.webContents.send('connectSuccess', '')
-      })
-      const parser = ComPort.pipe(new ParserReadline({ delimiter: '\r\n' }))
-      parser.on('data', data => {
-        data = data.split('\t')
-        mainWindow.webContents.send('serialData', JSON.stringify(data))
-      })
-      ComPort.on('error', function (err) {
-        mainWindow.webContents.send('otherError', err.message)
-      })
-    })
+    mainWindow.webContents.send('addDevice', ports.map(e => { return e.comName }))
   })
+})
+
+ipcMain.on('connectDevice', (event, arg) => {
+  if (ComPort) {
+    mainWindow.webContents.send('deviceAlreadyConnected', '')
+  } else {
+    ComPort = new SerialPort(arg, { autoOpen: false, baudRate: 9600 })
+    ComPort.open(function (err) {
+      if (err) {
+        mainWindow.webContents.send('connectError', err.message)
+        return
+      }
+      mainWindow.webContents.send('connectSuccess', '')
+    })
+    const parser = ComPort.pipe(new ParserReadline({ delimiter: '\r\n' }))
+    parser.on('data', data => {
+      data = data.split('\t')
+      mainWindow.webContents.send('serialData', JSON.stringify(data))
+    })
+    ComPort.on('error', function (err) {
+      mainWindow.webContents.send('otherError', err.message)
+    })
+  }
 })
 
 ipcMain.on('disconnectDevice', (event, arg) => {
   if (ComPort) {
     ComPort.close(err => {
       if (err) {
-        mainWindow.webContents.send('disconnectError', err.message)
-        return
+      //   mainWindow.webContents.send('disconnectError', err.message)
+      //   return
       }
       mainWindow.webContents.send('disconnectSuccess', '')
       ComPort = 0
