@@ -3,7 +3,7 @@
 @Date:   2019-03-04T12:28:00-08:00
 @Email:  brogan.miner@oregonstate.edu
 @Last modified by:   Brogan
-@Last modified time: 2019-03-06T21:12:45-08:00
+@Last modified time: 2019-03-07T10:19:51-08:00
 -->
 <template>
   <el-row class='stageArea'>
@@ -19,7 +19,7 @@
         <el-col :span='12' class='timerBlock block'>
           <div class='blockOverlay'>
           </div>
-          <timer />
+          <timer ref='timer' />
         </el-col>
         <el-col :span='12' class='numberBlock block'>
           <div class='blockOverlay'>
@@ -69,17 +69,17 @@ export default {
   created () {
     ipcRenderer.on('serialData', (event, arg) => {
       let f = JSON.parse(arg)
-      if (f[1] && !this.timerRunning) {
+      if (f[1] && !this.timerRunning && !this.$refs.timer.dialogVisible) {
         this.$store.dispatch('startTimer')
       } else if (!f[1] && this.timerRunning) {
-        this.$store.dispatch('stopTimer')
+        // this.$store.dispatch('stopTimer')
       } else if (f[1] && this.timerRunning) {
         clearTimeout(this.invalidator)
         this.$store.dispatch('pushData', { x: this.data.length, y: (f[1] * f[2]) })
         // stop if the device turns off
         this.invalidator = setTimeout(() => {
           this.$store.dispatch('stopTimer')
-        }, 1000)
+        }, 3000)
       }
     })
   },
